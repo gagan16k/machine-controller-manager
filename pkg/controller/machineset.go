@@ -565,16 +565,16 @@ func (c *controller) reconcileClusterMachineSet(key string) error {
 
 	filteredMachines = c.manageAutoPreservationOfFailedMachines(ctx, filteredMachines, machineSet)
 
-	// TODO: Fix working of expectations to reflect correct behaviour
-	// machineSetNeedsSync := c.expectations.SatisfiedExpectations(key)
+	machineSetNeedsSync := c.expectations.SatisfiedExpectations(key)
 	var manageReplicasErr error
 
 	if machineSet.DeletionTimestamp == nil {
 		// manageReplicas is the core machineSet method where scale up/down occurs
-		// It is not called when deletion timestamp is set
-		manageReplicasErr = c.manageReplicas(ctx, filteredMachines, machineSet)
-
-	} else if machineSet.DeletionTimestamp != nil {
+		// It is not called when deletion timestamp is set or when expectations are pending
+		if machineSetNeedsSync {
+			manageReplicasErr = c.manageReplicas(ctx, filteredMachines, machineSet)
+		}
+	} else {
 		// When machineSet if triggered for deletion
 
 		if len(filteredMachines) == 0 {
