@@ -101,7 +101,7 @@ func (c *controller) deleteMachine(obj any) {
 			return
 		}
 	}
-	c.enqueueMachineTermination(machine, "handling terminating machine object DELETE event")
+	klog.Infof("Machine %q deletion successful, machine object removed from cluster", machine.Name)
 
 	if c.targetCoreClient == nil || c.nodeLister == nil {
 		return
@@ -113,6 +113,11 @@ func (c *controller) deleteMachine(obj any) {
 	if nodeName == "" {
 		return
 	}
+
+	if _, err := c.nodeLister.Get(nodeName); apierrors.IsNotFound(err) {
+		return
+	}
+
 	go func() {
 		retryErr := retry.OnError(retry.DefaultBackoff, func(error) bool { return true }, func() error {
 			node, err := c.nodeLister.Get(nodeName)
@@ -347,12 +352,6 @@ func (c *controller) reconcileClusterMachineTermination(key string) error {
 
 	if err != nil {
 		c.enqueueMachineTerminationAfter(machine, time.Duration(retryPeriod), err.Error())
-	} else {
-		// If the informer loses connection to the API server it may need to resync.
-		// If a resource is deleted while the watch is down, the informer won’t get
-		// delete event because the object is already gone. To avoid this edge-case,
-		// a requeue is scheduled post machine deletion as well.
-		c.enqueueMachineTerminationAfter(machine, time.Duration(retryPeriod), "post-deletion reconcile")
 	}
 	return nil
 }
