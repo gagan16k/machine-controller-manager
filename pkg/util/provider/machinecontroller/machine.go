@@ -110,9 +110,26 @@ func (c *controller) deleteMachine(obj any) {
 	// Remove the MCM finalizer from and delete the backing node
 	// The orphan-VM safety net eventually removes the finalizer from nodes if this still fails.
 	nodeName := machine.Labels[v1alpha1.NodeLabelKey]
+	if nodeName == "" {
+		return
+	}
 	go func() {
 		retryErr := retry.OnError(retry.DefaultBackoff, func(error) bool { return true }, func() error {
-			_, _, err := c.removeFinalizerAndDeleteNode(context.Background(), machine)
+			node, err := c.nodeLister.Get(nodeName)
+			if err != nil {
+				// Node already gone, nothing left to clean up.
+				if apierrors.IsNotFound(err) {
+					return nil
+				}
+				return err
+			}
+			if err := c.removeNodeFinalizers(context.Background(), node); err != nil {
+				return err
+			}
+			err = c.targetCoreClient.CoreV1().Nodes().Delete(context.Background(), nodeName, metav1.DeleteOptions{})
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
 			return err
 		})
 		if retryErr != nil {
