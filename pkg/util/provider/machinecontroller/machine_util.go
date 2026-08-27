@@ -1988,7 +1988,6 @@ func (c *controller) deleteNodeObject(ctx context.Context, machine *v1alpha1.Mac
 		description = fmt.Sprintf("Deletion of Node Object %q failed due to error: %s. %s", nodeName, err, machineutils.InitiateNodeDeletion)
 		klog.Error(description)
 		state = v1alpha1.MachineStateFailed
-
 	}
 	return c.updateStatusForNodeDeletion(ctx, machine, description, state, err)
 }

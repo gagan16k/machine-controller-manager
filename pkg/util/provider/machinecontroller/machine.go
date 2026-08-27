@@ -107,7 +107,7 @@ func (c *controller) deleteMachine(obj any) {
 		return
 	}
 
-	// Remove the MCM finalizer from and delete the backing node
+	// Remove the MCM finalizer from and delete the backing node.
 	// The orphan-VM safety net eventually removes the finalizer from nodes if this still fails.
 	nodeName := machine.Labels[v1alpha1.NodeLabelKey]
 	if nodeName == "" {
@@ -117,7 +117,6 @@ func (c *controller) deleteMachine(obj any) {
 		retryErr := retry.OnError(retry.DefaultBackoff, func(error) bool { return true }, func() error {
 			node, err := c.nodeLister.Get(nodeName)
 			if err != nil {
-				// Node already gone, nothing left to clean up.
 				if apierrors.IsNotFound(err) {
 					return nil
 				}
@@ -130,13 +129,14 @@ func (c *controller) deleteMachine(obj any) {
 			if apierrors.IsNotFound(err) {
 				return nil
 			}
+			if err == nil {
+				klog.Infof("Successfully triggered deletion of backing node %q for deleted machine %q", nodeName, machine.Name)
+			}
 			return err
 		})
 		if retryErr != nil {
 			klog.Errorf("failed to delete backing node %q of deleted machine %q after multiple retries: %v", nodeName, machine.Name, retryErr)
-			return
 		}
-		klog.Infof("Successfully triggered deletion of backing node %q for deleted machine %q", nodeName, machine.Name)
 	}()
 }
 
